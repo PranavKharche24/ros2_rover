@@ -56,6 +56,11 @@ docker run -it --rm rover
 ros2 launch rover_bringup rover.launch.py
 ```
 
+To run the automation workflow:
+```shell
+python3 src/rover_automation/rover_automation.py
+```
+
 ### Linux Service
 
 A Linux service can be created to control the execution and launch everything at boot time. To create the rover service, the following commands are used:

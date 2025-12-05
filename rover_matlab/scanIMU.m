@@ -1,70 +1,69 @@
-%% Create ROS2 Node and IMU Subscriber (BEST_EFFORT QoS)
 node = ros2node("/matlab_imu");
 
 imuSub = ros2subscriber(node, "/imu", "sensor_msgs/Imu",Reliability="besteffort", Durability="volatile");
 
-%% Setup figure for real-time plotting
 figure;
-title("IMU Gyroscope (Angular Velocity) - Live Plot");
-xlabel("Time (s)");
-ylabel("Angular Velocity (rad/s)");
+tiledlayout(3, 1);
+axX = nexttile; title(axX, "Gyro X (Normalized)"); ylabel(axX, "Angular Velocity (rad/s)"); grid(axX, "on");
+axY = nexttile; title(axY, "Gyro Y (Normalized)"); ylabel(axY, "Angular Velocity (rad/s)"); grid(axY, "on");
+axZ = nexttile; title(axZ, "Gyro Z (Normalized)"); ylabel(axZ, "Angular Velocity (rad/s)"); xlabel(axZ, "Time (s)"); grid(axZ, "on");
 
-hold on;
-grid on;
-
-degFactor = 180 / pi;          % rad/s -> deg/s
-biasWindow = 200;              % samples for rolling bias
-gxZeroData = [];
-gyZeroData = [];
-gzZeroData = [];
-
-legend("Gyro X (deg/s zero-mean)", "Gyro Y (deg/s zero-mean)", "Gyro Z (deg/s zero-mean)");
-
-% Initialize arrays for storing data
-timeData = [];
-gxData = [];
-gyData = [];
-gzData = [];
+timeData = []; gxData = []; gyData = []; gzData = [];
+normGxData = []; normGyData = []; normGzData = [];
+biasGyro = [NaN NaN NaN];
+biasAlpha = 0.02;
+lastGyro = [NaN NaN NaN];
+startTime = tic;
 
 disp("Streaming IMU gyro data... Press Ctrl+C to stop.")
 
-startTime = tic;
-
-%% Continuous Loop
 while true
-    % Receive IMU message (non-blocking)
-    imuMsg = receive(imuSub, 0.1);   % 0.1 sec timeout
-    if isempty(imuMsg)
-        drawnow;
+    % Try receiving the message safely
+    try
+        imuMsg = receive(imuSub, 0.1);   % try for 0.1 sec
+
+    catch
+        % If no message arrives, skip this loop iteration
+        disp("No IMU data...");
+        pause(0.05);
         continue;
     end
-    % Extract gyroscope data (convert to deg/s)
-    gx = imuMsg.angular_velocity.x * degFactor;
-    gy = imuMsg.angular_velocity.y * degFactor;
-    gz = imuMsg.angular_velocity.z * degFactor;
 
-    % Compute elapsed time
+    % Extract gyro values
+    gx = imuMsg.angular_velocity.x;
+    gy = imuMsg.angular_velocity.y;
+    gz = imuMsg.angular_velocity.z;
+
+    currentGyro = [gx, gy, gz];
+    if all(abs(currentGyro - lastGyro) < 1e-9)
+        disp("Duplicate IMU gyro sample detected, skipping plot update.");
+        pause(0.05);
+        continue;
+    end
+    if any(isnan(biasGyro))
+        biasGyro = currentGyro;
+    else
+        biasGyro = (1 - biasAlpha) .* biasGyro + biasAlpha .* currentGyro;
+    end
+    normGyro = currentGyro - biasGyro;
+    lastGyro = currentGyro;
+
+    % Time
     t = toc(startTime);
 
-    % Store values
+    % Append data
     timeData(end+1) = t;
     gxData(end+1) = gx;
     gyData(end+1) = gy;
     gzData(end+1) = gz;
+    normGxData(end+1) = normGyro(1);
+    normGyData(end+1) = normGyro(2);
+    normGzData(end+1) = normGyro(3);
 
-    idxStart = max(1, numel(gxData) - biasWindow + 1);
-    biasX = mean(gxData(idxStart:end));
-    biasY = mean(gyData(idxStart:end));
-    biasZ = mean(gzData(idxStart:end));
+    cla(axX); plot(axX, timeData, normGxData, 'r', 'LineWidth', 1.2);
+    cla(axY); plot(axY, timeData, normGyData, 'g', 'LineWidth', 1.2);
+    cla(axZ); plot(axZ, timeData, normGzData, 'b', 'LineWidth', 1.2);
 
-    gxZeroData(end+1) = gx - biasX;
-    gyZeroData(end+1) = gy - biasY;
-    gzZeroData(end+1) = gz - biasZ;
-
-    % Live plot (gyro Z or all three — choose your line)
-    plot(timeData, gxZeroData, 'r', 'LineWidth', 1.5);
-    plot(timeData, gyZeroData, 'g', 'LineWidth', 1.5);
-    plot(timeData, gzZeroData, 'b', 'LineWidth', 1.5);
-
-    drawnow;
+    fprintf("Gyro raw [X Y Z] = [%.3f %.3f %.3f] | norm [%.3f %.3f %.3f]\n", gx, gy, gz, normGyro);
+    drawnow limitrate;
 end

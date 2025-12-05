@@ -58,7 +58,7 @@ ros2 launch rover_bringup rover.launch.py
 
 To run the automation workflow:
 ```shell
-python3 src/rover_automation/rover_automation.py
+python3 src/ros2_rover/rover_automation/rover_automation.py
 ```
 
 ### Linux Service

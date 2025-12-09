@@ -36,7 +36,31 @@
     
     <include>
       <uri>model://moon</uri>
+      <scale>50 50 50</scale>
     </include>
+
+    <model name="dome"> 
+      <static>true</static>
+      <pose>0 0 10 0 0 1.5708</pose>
+      <link name="dome_link">
+        <visual name="dome_visual">
+          <geometry>
+            <mesh>
+              <uri>file:///home/pranav/ros2_ws/src/ros2_rover/rover_gazebo/worlds/Dome.stl</uri>
+              <scale>0.003 0.003 0.003</scale>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name="dome_collision">
+          <geometry>
+            <mesh>
+              <uri>file:///home/pranav/ros2_ws/src/ros2_rover/rover_gazebo/worlds/Dome.stl</uri>
+              <scale>0.003 0.003 0.003</scale>
+            </mesh>
+          </geometry>
+        </collision>
+      </link>
+    </model>
 
   </world>
 </sdf>
